@@ -1,0 +1,18 @@
+{
+  "name": "server",
+  "version": "1.0.0",
+  "main": "./dist/index.js",
+  "scripts": {
+    "start:dev": "set NODE_ENV=development&& nodemon --exec ts-node ./src/index.ts",
+    "start:stag": "set NODE_ENV=staging&& node ./dist/index.js",
+    "start:prod": "set NODE_ENV=production&& node ./dist/index.js",
+    "build": "tsc"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.5"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.4",
+    "ts-node": "^10.9.2"
+  }
+}
