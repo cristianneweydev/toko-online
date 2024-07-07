@@ -1,13 +1,21 @@
 import { Respon } from "./AliasInterface";
 import dbConnectionHandler from "../utils/dbConnectionHandler";
 import database from "../configs/database";
-import fileSystem from "fs";
+import fileSystem, { watch } from "fs";
 import pembacaEkstensiFile from "../utils/pembacaEkstensiFile";
 
 type InputTambahProduk = {
     nama: string;
     deskripsi: string;
     foto: any;
+};
+
+type InputTambahVarianProduk = {
+    idProduk: number;
+    nama: string;
+    harga: number;
+    stok: number;
+    berat: number;
 };
 
 class Produk {
@@ -54,7 +62,7 @@ class Produk {
                 });
                 else {
                     await dbConnection.beginTransaction();
-                    await dbConnection.query(sql.query.insertProduk, sql.input.insertProduk);
+                    const [resultInsertProduk] = await dbConnection.query(sql.query.insertProduk, sql.input.insertProduk);
                     pathNamaFolderProduk = this.pathFolderProduk + "/" + input.nama.replace(/\s/g, "-");
                     await fileSystem.mkdirSync(pathNamaFolderProduk);
                     let callBackUploadFileFoto = null;
@@ -67,14 +75,65 @@ class Produk {
                     });
                     if (callBackUploadFileFoto !== null) throw callBackUploadFileFoto;
                     dbConnection.commit();
-                    resolve({
+
+                    interface ResponBerhasil extends Respon { idInsert: number };
+
+                    const responBerhasil: ResponBerhasil = {
                         status: 201,
                         pesan: "PRODUK BERHASIL DITAMBAHKAN",
-                    });
+                        idInsert: resultInsertProduk.insertId,
+                    };
+                    resolve(responBerhasil);
                 };
             } catch(error) {
                 dbConnection.rollback();
                 if (pathNamaFolderProduk !== null) await this.hapusNamaFolderProduk(pathNamaFolderProduk);
+                reject(error);
+            };
+            dbConnection.release();
+        });
+    };
+
+    tambahVarianProduk(input: InputTambahVarianProduk): Promise<Respon> {
+        return new Promise(async (resolve, reject) => {
+            let dbConnection: any = dbConnectionHandler;
+            try {
+                dbConnection = await database.promise().getConnection();
+                const sql = {
+                    query: {
+                        cariIdProduk: "SELECT id FROM produk WHERE id = ? LIMIT 1",
+                        cariNamaVarianProduk: "SELECT nama FROM varian_produk WHERE LOWER(nama) = LOWER(?) LIMIT 1",
+                        insertVarianProduk: "INSERT INTO varian_produk (id_produk, nama, harga, stok, berat) VALUES (?, ?, ?, ?, ?)",
+                    },
+                    input: {
+                        cariIdProduk: [input.idProduk],
+                        cariNamaVarianProduk: [input.nama],
+                        insertVarianProduk:[input.idProduk, input.nama, input.harga, input.stok, input.berat],
+                    },
+                };
+                const [resultCariIdProduk] = await dbConnection.query(sql.query.cariIdProduk, sql.input.cariIdProduk);
+                if (resultCariIdProduk.length === 0) resolve({
+                    status: 404,
+                    pesan: "ID PRODUK TIDAK DITEMUKAN",
+                });
+                else {
+                    const [resultCariNamaVarianProduk] = await dbConnection.query(sql.query.cariNamaVarianProduk, sql.input.cariNamaVarianProduk);
+                    if (resultCariNamaVarianProduk.length === 1) resolve({
+                        status: 409,
+                        pesan: "VARIAN PRODUK DENGAN NAMA YANG SAMA SUDAH ADA",
+                    });
+                    else {
+                        await dbConnection.beginTransaction();
+                        await dbConnection.query(sql.query.insertVarianProduk, sql.input.insertVarianProduk);
+                        dbConnection.commit();
+                        resolve({
+                            status: 201,
+                            pesan: "VARIAN PRODUK BERHASIL DITAMBAHKAN",
+                        });
+                    };
+                };
+            } catch(error) {
+                dbConnection.rollback();
                 reject(error);
             };
             dbConnection.release();

@@ -36,6 +36,35 @@ class Produk {
             response.send(500);
         };
     };
+
+    async tambahVarianProduk(request: Request, response: Response) {
+        try {
+            const inputBody = request.body;
+            if (
+                typeof inputBody.idProduk !== "number"
+                || typeof inputBody.nama !== "string"
+                || typeof inputBody.harga !== "number"
+                || typeof inputBody.stok !== "number"
+                || typeof inputBody.berat !== "number"
+            ) response.send(400);
+            else {
+                const resultModel = await model.tambahVarianProduk({
+                    idProduk: inputBody.idProduk,
+                    nama: inputBody.nama,
+                    harga: inputBody.harga,
+                    stok: inputBody.stok,
+                    berat: inputBody.berat,
+                });
+                response.status(resultModel.status).json(resultModel);
+            };
+        } catch(error) {
+            console.error({
+                error,
+                pesan: "SERVICE API ERROR",
+            });
+            response.send(500);
+        };
+    };
 };
 
 export default new Produk();
