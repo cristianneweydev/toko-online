@@ -8,7 +8,7 @@ type InputLogin = {
 };
 
 class Auth {
-    static login(input: InputLogin): Promise<Respon> {
+    login(input: InputLogin): Promise<Respon> {
         return new Promise((resolve, reject) => {
             try {
                 const {
@@ -42,4 +42,4 @@ class Auth {
     };
 };
 
-export default Auth;
+export default new Auth();

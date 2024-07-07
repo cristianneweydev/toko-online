@@ -1,6 +1,9 @@
 import express from "express";
 import { rateLimit } from "express-rate-limit";
-import ControllerAuth from "../controllers/Auth";
+import controllerAuth from "../controllers/auth";
+import validasiJwt from "../middlewares/validasiJwt";
+import expressFileupload from "express-fileupload";
+import controllerProduk from "../controllers/produk";
 
 const router = express.Router();
 const rateLimiter = rateLimit({
@@ -8,6 +11,8 @@ const rateLimiter = rateLimit({
     limit: 20, // jumlah batas request
 });
 
-router.post("/auth/login", rateLimiter, ControllerAuth.login);
+router.post("/auth/login", rateLimiter, controllerAuth.login);
+
+router.post("/product", validasiJwt, expressFileupload(), controllerProduk.tambahProduk);
 
 export default router;

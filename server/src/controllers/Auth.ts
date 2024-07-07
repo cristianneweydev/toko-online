@@ -1,8 +1,8 @@
 import { Request, Response } from "express";
-import model from "../models/Auth";
+import model from "../models/auth";
 
 class Auth {
-    static async login(request: Request, response: Response) {
+    async login(request: Request, response: Response) {
         try {
             const inputBody = request.body;
             if (
@@ -24,4 +24,4 @@ class Auth {
     };
 };
 
-export default Auth;
+export default new Auth();
