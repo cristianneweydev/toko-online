@@ -29,6 +29,14 @@ type InputUbahProduk = {
     deskripsi: string;
 };
 
+type InputUbahVarianProduk = {
+    id: number,
+    nama: string;
+    harga: number;
+    stok: number;
+    berat: number;
+};
+
 class Produk {
     pathFolderProduk: string;
     linkFileFotoProduk: string;
@@ -367,6 +375,43 @@ class Produk {
                     resolve({
                         status: 200,
                         pesan: "BERHASIL MENGUPDATE PRODUK",
+                    });
+                };
+            } catch(error) {
+                dbConnection.rollback();
+                reject(error);
+            };
+            dbConnection.release();
+        });
+    };
+
+    updateVarianProduk(input: InputUbahVarianProduk): Promise<Respon> {
+        return new Promise(async (resolve, reject) => {
+            let dbConnection: any = dbConnectionHandler;
+            try {
+                dbConnection = await database.promise().getConnection();
+                const sql = {
+                    query: {
+                        cariIdVarianProduk: "SELECT id FROM varian_produk WHERE id = ? LIMIT 1",
+                        updateVarianProduk: "UPDATE varian_produk SET nama = COALESCE(?, nama), harga = COALESCE(?, harga), stok = COALESCE(?, stok), berat = COALESCE(?, berat) WHERE id = ?",
+                    },
+                    input: {
+                        cariIdVarianProduk: [input.id],
+                        updateVarianProduk: [input.nama, input.harga, input.stok, input.berat, input.id],
+                    },
+                };
+                const [resultCariIdProduk] = await dbConnection.query(sql.query.cariIdVarianProduk, sql.input.cariIdVarianProduk);
+                if (resultCariIdProduk.length === 0) resolve({
+                    status: 404,
+                    pesan: "VARIAN PRODUK TIDAK DITEMUKAN",
+                });
+                else {
+                    await dbConnection.beginTransaction();
+                    await dbConnection.query(sql.query.updateVarianProduk, sql.input.updateVarianProduk);
+                    dbConnection.commit();
+                    resolve({
+                        status: 200,
+                        pesan: "BERHASIL MENGUPDATE VARIAN PRODUK",
                     });
                 };
             } catch(error) {

@@ -142,6 +142,35 @@ class Produk {
             response.send(500);
         };
     };
+
+    async updateVarianProduk(request: Request, response: Response) {
+        try {
+            const inputBody = request.body;
+            if (
+                typeof inputBody.id !== "number"
+                || (
+                    !inputBody.nama
+                    && !inputBody.harga
+                    && !inputBody.stok
+                    && !inputBody.berat
+                )
+            ) response.send(400);
+            else if (inputBody.nama && typeof inputBody.nama !== "string") response.send(400);
+            else if (inputBody.harga && typeof inputBody.harga !== "number") response.send(400);
+            else if (inputBody.stok && typeof inputBody.stok !== "number") response.send(400);
+            else if (inputBody.berat && typeof inputBody.berat !== "number") response.send(400);
+            else {
+                const resultModel = await model.updateVarianProduk(inputBody);
+                response.status(resultModel.status).json(resultModel);
+            };
+        } catch(error) {
+            console.error({
+                error,
+                pesan: "SERVICE API ERROR",
+            });
+            response.send(500);
+        };
+    };
 };
 
 export default new Produk();
