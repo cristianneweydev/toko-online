@@ -32,3 +32,19 @@ database.nonPromise().getConnection((error, dbConnection) => {
         dbConnection.release();
     };
 });
+
+import produk from "./models/produk";
+
+// const cek = async () => {
+//     const ce = await produk.backUpFolderProduk("Test");
+//     console.log(ce);
+// };
+
+// cek();
+
+// const te = async () => {
+//     const re = await produk.kembalikanFolderProduk("Test");
+//     console.log(re);
+// };
+
+// te();

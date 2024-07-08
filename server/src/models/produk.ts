@@ -1,7 +1,7 @@
 import { Respon } from "./AliasInterface";
 import dbConnectionHandler from "../utils/dbConnectionHandler";
 import database from "../configs/database";
-import fileSystem, { fstat, watch } from "fs";
+import fileSystem, { mkdirSync } from "fs";
 import pembacaEkstensiFile from "../utils/pembacaEkstensiFile";
 
 type InputTambahProduk = {
@@ -26,20 +26,59 @@ interface ResponDataProduk extends Respon {
 class Produk {
     pathFolderProduk: string;
     linkFileFotoProduk: string;
+    pathFolderBackupProduk: string;
 
     constructor() {
         this.pathFolderProduk = "./public/images/products";
         this.linkFileFotoProduk = "/images/products";
+        this.pathFolderBackupProduk = "./backups/images/products";
     };
 
-    hapusNamaFolderProduk(inputPathFolder: string): Promise<string> {
+    backUpFolderProduk(inputNamaFolderProduk: string): Promise<string> {
+        return new Promise(async (resolve, reject) => {
+            try {
+                const pathNamaFolderProduk = this.pathFolderProduk + "/" + inputNamaFolderProduk;
+                const resultFolderProduk = await fileSystem.existsSync(pathNamaFolderProduk);
+                if (resultFolderProduk === false) resolve(`PATH ${ pathNamaFolderProduk } TIDAK DITEMUKAN`);
+                else {
+                    const pathNamaFolderBackupProduk = this.pathFolderBackupProduk + "/" + inputNamaFolderProduk;
+                    await mkdirSync(pathNamaFolderBackupProduk);
+                    await fileSystem.cpSync(pathNamaFolderProduk, pathNamaFolderBackupProduk, { recursive: true });
+                    resolve(`BERHASIL MEMBACKUP FOLDER ${ pathNamaFolderProduk } KE ${ pathNamaFolderBackupProduk }`);
+                };
+            } catch(error) {
+                reject(error);
+            };
+        });
+    };
+
+    hapusFolderProduk(inputPathFolder: string): Promise<string> {
         return new Promise(async (resolve, reject) => {
             try {
                 const resultFolderProduk = await fileSystem.existsSync(inputPathFolder);
-                if (resultFolderProduk === true) {
+                if (resultFolderProduk === false) resolve(`PATH ${ inputPathFolder } TIDAK DITEMUKAN`);
+                else {
                     await fileSystem.rmdirSync(inputPathFolder, { recursive: true });
-                    resolve("BERHASIL MENGHAPUS FOLDER" + inputPathFolder);
-                } else resolve(`PATH ${ inputPathFolder } TIDAK DITEMUKAN`);
+                    resolve("BERHASIL MENGHAPUS FOLDER " + inputPathFolder); 
+                };
+            } catch(error) {
+                reject(error);
+            };
+        });
+    };
+
+    kembalikanFolderProduk(inputNamaFolderProduk: string): Promise<string> {
+        return new Promise(async (resolve, reject) => {
+            try {
+                const pathNamaFolderBackupProduk = this.pathFolderBackupProduk + "/" + inputNamaFolderProduk;
+                const resultFolderProduk = await fileSystem.existsSync(pathNamaFolderBackupProduk);
+                if (resultFolderProduk === false) resolve(`PATH ${ pathNamaFolderBackupProduk } TIDAK DITEMUKAN`);
+                else {
+                    const pathNamaFolderProduk = this.pathFolderProduk + "/" + inputNamaFolderProduk;
+                    await mkdirSync(pathNamaFolderProduk);
+                    await fileSystem.cpSync(pathNamaFolderBackupProduk, pathNamaFolderProduk, { recursive: true });
+                    resolve(`BERHASIL MENGEMBALIKAN FOLDER ${ pathNamaFolderBackupProduk } KE ${ pathNamaFolderProduk }`);
+                };
             } catch(error) {
                 reject(error);
             };
@@ -49,7 +88,7 @@ class Produk {
     tambahProduk(input: InputTambahProduk): Promise<Respon> {
         return new Promise(async (resolve, reject) => {
             let dbConnection: any = dbConnectionHandler;
-            let pathNamaFolderProduk: any = null;
+            let pathNamaFolderProduk: null | string = null;
             try {
                 dbConnection = await database.promise().getConnection();
                 const sql = {
@@ -70,7 +109,8 @@ class Produk {
                 else {
                     await dbConnection.beginTransaction();
                     const [resultInsertProduk] = await dbConnection.query(sql.query.insertProduk, sql.input.insertProduk);
-                    pathNamaFolderProduk = this.pathFolderProduk + "/" + input.nama.replace(/\s/g, "-");
+                    const regexSpasi = /\s/g;
+                    pathNamaFolderProduk = this.pathFolderProduk + "/" + input.nama.replace(regexSpasi, "-");
                     await fileSystem.mkdirSync(pathNamaFolderProduk);
                     let callBackUploadFileFoto = null;
                     input.foto.map((inputFotoMap, index) => {
@@ -94,7 +134,7 @@ class Produk {
                 };
             } catch(error) {
                 dbConnection.rollback();
-                if (pathNamaFolderProduk !== null) await this.hapusNamaFolderProduk(pathNamaFolderProduk);
+                if (typeof pathNamaFolderProduk === "string") await this.hapusFolderProduk(pathNamaFolderProduk);
                 reject(error);
             };
             dbConnection.release();
@@ -170,7 +210,8 @@ class Produk {
                     const [resultIdProdukVarianProduk] = await dbConnection.query(sql.query.cariIdProdukVarianProduk, sql.input.cariIdProdukVarianProduk);
                     resultCariSemuaProduk[urutan].varian = resultIdProdukVarianProduk.length > 0 ? resultIdProdukVarianProduk : null;
 
-                    const namaFolderProduk = resultCariSemuaProduk[urutan].nama.replace(/\s/g, "-");
+                    const regexSpasi = /\s/g;
+                    const namaFolderProduk = resultCariSemuaProduk[urutan].nama.replace(regexSpasi, "-");
                     const pathNamaFolderProduk = this.pathFolderProduk + "/" + namaFolderProduk;
                     const resultFileFoto = await fileSystem.readdirSync(pathNamaFolderProduk);
                     for (let urutanFileFoto = 0; urutanFileFoto < resultFileFoto.length; urutanFileFoto++) {
@@ -189,6 +230,61 @@ class Produk {
                     data: resultCariSemuaProduk.length > 0 ? resultCariSemuaProduk : null,
                 });
             } catch(error) {
+                reject(error);
+            };
+            dbConnection.release();
+        });
+    };
+
+    hapusProduk(inputId: number): Promise<Respon> {
+        return new Promise(async (resolve, reject) => {
+            let dbConnection: any = dbConnectionHandler;
+            let namaFolderProduk: null | string = null;
+            let pathNamaFolderProduk: null | string = null;
+            let pathNamaFolderBackupProduk: null | string = null;
+            try {
+                dbConnection = await database.promise().getConnection();
+                const sql = {
+                    query: {
+                        cariIdProduk: "SELECT id, nama FROM produk WHERE id = ? LIMIT 1",
+                        hapusProduk: "DELETE FROM produk WHERE id = ?",
+                    },
+                    input: {
+                        cariIdProduk: [inputId],
+                        hapusProduk: [inputId],
+                    },
+                };
+                const [resultCariIdProduk] = await dbConnection.query(sql.query.cariIdProduk, sql.input.cariIdProduk);
+                if (resultCariIdProduk.length === 0) resolve({
+                    status: 404,
+                    pesan: "PRODUK TIDAK DITEMUKAN",
+                });
+                else {
+                    await dbConnection.beginTransaction();
+                    await dbConnection.query(sql.query.hapusProduk, sql.input.hapusProduk);
+                    const regexSpasi = /\s/g;
+                    namaFolderProduk = resultCariIdProduk[0].nama.replace(regexSpasi, "-");
+                    await this.backUpFolderProduk(namaFolderProduk || "default");
+                    pathNamaFolderProduk = this.pathFolderProduk + "/" + namaFolderProduk;
+                    await this.hapusFolderProduk(pathNamaFolderProduk);
+                    pathNamaFolderBackupProduk = this.pathFolderBackupProduk + "/" + namaFolderProduk;
+                    await this.hapusFolderProduk(pathNamaFolderBackupProduk);
+                    dbConnection.commit();
+                    resolve({
+                        status: 200,
+                        pesan: "BERHASIL MENGHAPUS PRODUK",
+                    });
+                };
+            } catch(error) {
+                if (typeof namaFolderProduk === "string" && pathNamaFolderProduk === null) {
+                    pathNamaFolderBackupProduk = this.pathFolderBackupProduk + "/" + namaFolderProduk;
+                    await this.hapusFolderProduk(pathNamaFolderBackupProduk);
+                } else if (typeof namaFolderProduk === "string" && typeof pathNamaFolderProduk === "string") {
+                    await this.kembalikanFolderProduk(namaFolderProduk);
+                    pathNamaFolderBackupProduk = this.pathFolderBackupProduk + "/" + namaFolderProduk;
+                    await this.hapusFolderProduk(pathNamaFolderBackupProduk);
+                };
+                dbConnection.rollback();
                 reject(error);
             };
             dbConnection.release();
