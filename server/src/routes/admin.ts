@@ -17,5 +17,6 @@ router.post("/product", validasiJwt, expressFileupload(), controllerProduk.tamba
 router.post("/product/variant", validasiJwt, controllerProduk.tambahVarianProduk);
 router.get("/product", validasiJwt, controllerProduk.dataProdukAdmin);
 router.delete("/product", validasiJwt, controllerProduk.hapusProduk);
+router.delete("/product/variant", validasiJwt, controllerProduk.hapusVarianProduk);
 
 export default router;

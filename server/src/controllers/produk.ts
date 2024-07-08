@@ -103,6 +103,23 @@ class Produk {
             response.send(500);
         };
     };
+
+    async hapusVarianProduk(request: Request, response: Response) {
+        try {
+            const inputQueryId: any = request.query.id;
+            if (Array.isArray(inputQueryId) || isNaN(inputQueryId)) response.send(400);
+            else {
+                const resultModel = await model.hapusVarianProduk(Number(inputQueryId));
+                response.status(resultModel.status).json(resultModel);
+            };
+        } catch(error) {
+            console.error({
+                error,
+                pesan: "SERVICE API ERROR",
+            });
+            response.send(500);
+        };
+    };
 };
 
 export default new Produk();

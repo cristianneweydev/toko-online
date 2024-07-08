@@ -290,6 +290,43 @@ class Produk {
             dbConnection.release();
         });
     };
+
+    hapusVarianProduk(inputId: number): Promise<Respon> {
+        return new Promise(async (resolve, reject) => {
+            let dbConnection: any = dbConnectionHandler;
+            try {
+                dbConnection = await database.promise().getConnection();
+                const sql = {
+                    query: {
+                        cariIdVarianProduk: "SELECT id FROM varian_produk WHERE id = ? LIMIT 1",
+                        hapusVarianProduk: "DELETE FROM varian_produk WHERE id = ?",
+                    },
+                    input: {
+                        cariIdVarianProduk: [inputId],
+                        hapusVarianProduk: [inputId],
+                    },
+                };
+                const [resultCariIdVarianProduk] = await dbConnection.query(sql.query.cariIdVarianProduk, sql.input.cariIdVarianProduk);
+                if (resultCariIdVarianProduk.length === 0) resolve({
+                    status: 404,
+                    pesan: "VARIAN PRODUK TIDAK DITEMUKAN",
+                });
+                else {
+                    await dbConnection.beginTransaction();
+                    await dbConnection.query(sql.query.hapusVarianProduk, sql.input.hapusVarianProduk);
+                    dbConnection.commit();
+                    resolve({
+                        status: 200,
+                        pesan: "BERHASIL MENGHAPUS VARIAN PRODUK",
+                    });
+                };
+            } catch(error) {
+                dbConnection.rollback();
+                reject(error);
+            };
+            dbConnection.release();
+        });
+    };
 };
 
 export default new Produk();
