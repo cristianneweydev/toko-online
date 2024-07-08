@@ -23,6 +23,12 @@ interface ResponDataProduk extends Respon {
     data: Array<any> | null;
 };
 
+type InputUbahProduk = {
+    id: number,
+    nama: string;
+    deskripsi: string;
+};
+
 class Produk {
     pathFolderProduk: string;
     linkFileFotoProduk: string;
@@ -318,6 +324,49 @@ class Produk {
                     resolve({
                         status: 200,
                         pesan: "BERHASIL MENGHAPUS VARIAN PRODUK",
+                    });
+                };
+            } catch(error) {
+                dbConnection.rollback();
+                reject(error);
+            };
+            dbConnection.release();
+        });
+    };
+
+    updateProduk(input: InputUbahProduk): Promise<Respon> {
+        return new Promise(async (resolve, reject) => {
+            let dbConnection: any = dbConnectionHandler;
+            try {
+                dbConnection = await database.promise().getConnection();
+                const sql = {
+                    query: {
+                        cariIdProduk: "SELECT id, nama FROM produk WHERE id = ? LIMIT 1",
+                        updateProduk: "UPDATE produk SET nama = COALESCE(?, nama), deskripsi = COALESCE(?, deskripsi), diperbarui = NOW() WHERE id = ?",
+                    },
+                    input: {
+                        cariIdProduk: [input.id],
+                        updateProduk: [input.nama, input.deskripsi, input.id],
+                    },
+                };
+                const [resultCariIdProduk] = await dbConnection.query(sql.query.cariIdProduk, sql.input.cariIdProduk);
+                if (resultCariIdProduk.length === 0) resolve({
+                    status: 404,
+                    pesan: "PRODUK TIDAK DITEMUKAN",
+                });
+                else {
+                    await dbConnection.beginTransaction();
+                    await dbConnection.query(sql.query.updateProduk, sql.input.updateProduk);
+                    if (input.nama) {
+                        const regexSpasi = /\s/g;
+                        const pathNamaFolderProdukLama = this.pathFolderProduk + "/" + resultCariIdProduk[0].nama.replace(regexSpasi ,"-");
+                        const pathNamaFolderProdukBaru = this.pathFolderProduk + "/" + input.nama.replace(regexSpasi ,"-");
+                        await fileSystem.renameSync(pathNamaFolderProdukLama, pathNamaFolderProdukBaru);
+                    };
+                    dbConnection.commit();
+                    resolve({
+                        status: 200,
+                        pesan: "BERHASIL MENGUPDATE PRODUK",
                     });
                 };
             } catch(error) {

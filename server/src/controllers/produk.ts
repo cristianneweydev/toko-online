@@ -120,6 +120,28 @@ class Produk {
             response.send(500);
         };
     };
+
+    async updateProduk(request: Request, response: Response) {
+        try {
+            const inputBody = request.body;
+            if (
+                typeof inputBody.id !== "number"
+                || (!inputBody.nama && !inputBody.deskripsi)
+            ) response.send(400);
+            else if (inputBody.nama && typeof inputBody.nama !== "string") response.send(400);
+            else if (inputBody.deskripsi && typeof inputBody.deskripsi !== "string") response.send(400);
+            else {
+                const resultModel = await model.updateProduk(inputBody);
+                response.status(resultModel.status).json(resultModel);
+            };
+        } catch(error) {
+            console.error({
+                error,
+                pesan: "SERVICE API ERROR",
+            });
+            response.send(500);
+        };
+    };
 };
 
 export default new Produk();

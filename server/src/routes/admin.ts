@@ -18,5 +18,6 @@ router.post("/product/variant", validasiJwt, controllerProduk.tambahVarianProduk
 router.get("/product", validasiJwt, controllerProduk.dataProdukAdmin);
 router.delete("/product", validasiJwt, controllerProduk.hapusProduk);
 router.delete("/product/variant", validasiJwt, controllerProduk.hapusVarianProduk);
+router.put("/product", validasiJwt, controllerProduk.updateProduk);
 
 export default router;
