@@ -68,8 +68,11 @@ class Produk {
 
     async dataProdukAdmin(request: Request, response: Response) {
         try {
-            const inputQueryPagination = request.query.pagination;
-            if (inputQueryPagination && Array.isArray(inputQueryPagination)) response.send(400);
+            const inputQueryPagination: any = request.query.pagination;
+            if (
+                inputQueryPagination
+                && (Array.isArray(inputQueryPagination) || isNaN(inputQueryPagination))
+            ) response.send(400);
             else {
                 const inputPagination = inputQueryPagination ? Number(inputQueryPagination) : 0;
                 const resultModel = await model.dataProdukAdmin(inputPagination);
