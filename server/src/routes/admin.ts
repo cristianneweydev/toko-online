@@ -15,5 +15,6 @@ router.post("/auth/login", rateLimiter, controllerAuth.login);
 
 router.post("/product", validasiJwt, expressFileupload(), controllerProduk.tambahProduk);
 router.post("/product/variant", validasiJwt, controllerProduk.tambahVarianProduk);
+router.get("/product", validasiJwt, controllerProduk.dataProdukAdmin);
 
 export default router;

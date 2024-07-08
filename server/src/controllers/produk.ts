@@ -65,6 +65,24 @@ class Produk {
             response.send(500);
         };
     };
+
+    async dataProdukAdmin(request: Request, response: Response) {
+        try {
+            const inputQueryPagination = request.query.pagination;
+            if (inputQueryPagination && Array.isArray(inputQueryPagination)) response.send(400);
+            else {
+                const inputPagination = inputQueryPagination ? Number(inputQueryPagination) : 0;
+                const resultModel = await model.dataProdukAdmin(inputPagination);
+                response.status(resultModel.status).json(resultModel);
+            };
+        } catch(error) {
+            console.error({
+                error,
+                pesan: "SERVICE API ERROR",
+            });
+            response.send(500);
+        };
+    };
 };
 
 export default new Produk();
