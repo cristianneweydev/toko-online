@@ -173,7 +173,7 @@ class Produk {
 
     async tambahFotoProduk(request: Request, response: Response) {
         try {
-            const inputBodyId: any = request.body.id;
+            const inputBodyId = request.body.id;
             const inputfile = request.files;
             if (
                 Array.isArray(inputBodyId)
@@ -195,6 +195,23 @@ class Produk {
                     });
                     response.status(resultModel.status).json(resultModel);
                 };
+            };
+        } catch(error) {
+            console.error({
+                error,
+                pesan: "SERVICE API ERROR",
+            });
+            response.send(500);
+        };
+    };
+
+    async hapusFotoProduk(request: Request, response: Response) {
+        try {
+            const inputBody = request.body;
+            if (typeof inputBody.id !== "number" || typeof inputBody.index !== "number") response.send(400);
+            else {
+                const resultModel = await model.hapusFotoProduk(inputBody);
+                response.status(resultModel.status).json(resultModel);
             };
         } catch(error) {
             console.error({

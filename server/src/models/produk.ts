@@ -1,7 +1,7 @@
 import { Respon } from "./AliasInterface";
 import dbConnectionHandler from "../utils/dbConnectionHandler";
 import database from "../configs/database";
-import fileSystem, { mkdirSync } from "fs";
+import fileSystem, { promises as fileSystemPromise } from "fs";
 import pembacaEkstensiFile from "../utils/pembacaEkstensiFile";
 
 type InputTambahProduk = {
@@ -43,6 +43,11 @@ type InputTambahFotoProduk = {
     foto: any;
 };
 
+type InputHapusFotoProduk = {
+    id: number;
+    index: number;
+};
+
 class Produk {
     pathFolderProduk: string;
     linkFileFotoProduk: string;
@@ -58,12 +63,12 @@ class Produk {
         return new Promise(async (resolve, reject) => {
             try {
                 const pathNamaFolderProduk = this.pathFolderProduk + "/" + inputNamaFolderProduk;
-                const resultFolderProduk = await fileSystem.existsSync(pathNamaFolderProduk);
+                const resultFolderProduk = fileSystem.existsSync(pathNamaFolderProduk);
                 if (resultFolderProduk === false) resolve(`PATH ${ pathNamaFolderProduk } TIDAK DITEMUKAN`);
                 else {
                     const pathNamaFolderBackupProduk = this.pathFolderBackupProduk + "/" + inputNamaFolderProduk;
-                    await mkdirSync(pathNamaFolderBackupProduk);
-                    await fileSystem.cpSync(pathNamaFolderProduk, pathNamaFolderBackupProduk, { recursive: true });
+                    await fileSystemPromise.mkdir(pathNamaFolderBackupProduk);
+                    await fileSystemPromise.cp(pathNamaFolderProduk, pathNamaFolderBackupProduk, { recursive: true });
                     resolve(`BERHASIL MEMBACKUP FOLDER ${ pathNamaFolderProduk } KE ${ pathNamaFolderBackupProduk }`);
                 };
             } catch(error) {
@@ -75,10 +80,10 @@ class Produk {
     hapusFolderProduk(inputPathFolder: string): Promise<string> {
         return new Promise(async (resolve, reject) => {
             try {
-                const resultFolderProduk = await fileSystem.existsSync(inputPathFolder);
+                const resultFolderProduk = fileSystem.existsSync(inputPathFolder);
                 if (resultFolderProduk === false) resolve(`PATH ${ inputPathFolder } TIDAK DITEMUKAN`);
                 else {
-                    await fileSystem.rmdirSync(inputPathFolder, { recursive: true });
+                    await fileSystemPromise.rmdir(inputPathFolder, { recursive: true });
                     resolve("BERHASIL MENGHAPUS FOLDER " + inputPathFolder); 
                 };
             } catch(error) {
@@ -95,8 +100,8 @@ class Produk {
                 if (resultFolderProduk === false) resolve(`PATH ${ pathNamaFolderBackupProduk } TIDAK DITEMUKAN`);
                 else {
                     const pathNamaFolderProduk = this.pathFolderProduk + "/" + inputNamaFolderProduk;
-                    await mkdirSync(pathNamaFolderProduk);
-                    await fileSystem.cpSync(pathNamaFolderBackupProduk, pathNamaFolderProduk, { recursive: true });
+                    await fileSystemPromise.mkdir(pathNamaFolderProduk);
+                    await fileSystemPromise.cp(pathNamaFolderBackupProduk, pathNamaFolderProduk, { recursive: true });
                     resolve(`BERHASIL MENGEMBALIKAN FOLDER ${ pathNamaFolderBackupProduk } KE ${ pathNamaFolderProduk }`);
                 };
             } catch(error) {
@@ -109,6 +114,7 @@ class Produk {
         return new Promise(async (resolve, reject) => {
             let dbConnection: any = dbConnectionHandler;
             let pathNamaFolderProduk: null | string = null;
+            let callBackErrorHapusFolderProduk = false;
             try {
                 dbConnection = await database.promise().getConnection();
                 const sql = {
@@ -131,7 +137,8 @@ class Produk {
                     const [resultInsertProduk] = await dbConnection.query(sql.query.insertProduk, sql.input.insertProduk);
                     const regexSpasi = /\s/g;
                     pathNamaFolderProduk = this.pathFolderProduk + "/" + input.nama.replace(regexSpasi, "-");
-                    await fileSystem.mkdirSync(pathNamaFolderProduk);
+                    await fileSystemPromise.mkdir(pathNamaFolderProduk);
+                    callBackErrorHapusFolderProduk = true;
                     let callBackUploadFileFoto = null;
                     input.foto.map((inputFotoMap, index) => {
                         const namaFileFoto = index + pembacaEkstensiFile(inputFotoMap.name);
@@ -154,7 +161,7 @@ class Produk {
                 };
             } catch(error) {
                 dbConnection.rollback();
-                if (typeof pathNamaFolderProduk === "string") await this.hapusFolderProduk(pathNamaFolderProduk);
+                if (callBackErrorHapusFolderProduk === true) await this.hapusFolderProduk(pathNamaFolderProduk || "default");
                 reject(error);
             };
             dbConnection.release();
@@ -235,7 +242,13 @@ class Produk {
                     const regexSpasi = /\s/g;
                     const namaFolderProduk = resultCariSemuaProduk[urutan].nama.replace(regexSpasi, "-");
                     const pathNamaFolderProduk = this.pathFolderProduk + "/" + namaFolderProduk;
-                    const resultFileFoto = await fileSystem.readdirSync(pathNamaFolderProduk);
+                    const resultFileFoto = await fileSystemPromise.readdir(pathNamaFolderProduk);
+                    resultFileFoto.sort((resultFileFotoSortA, resultFileFotoSortB) => {
+                        const regexAngka = /[0-9]+/;
+                        const cariAngkaA = resultFileFotoSortA.match(regexAngka) || "default";
+                        const cariAngkaB = resultFileFotoSortB.match(regexAngka) || "default";
+                        return Number(cariAngkaA[0]) - Number(cariAngkaB[0]);
+                    });
                     for (let urutanFileFoto = 0; urutanFileFoto < resultFileFoto.length; urutanFileFoto++) {
                         const linkFileFoto = this.linkFileFotoProduk + "/" + namaFolderProduk + "/" + resultFileFoto[urutanFileFoto];
                         resultFileFoto[urutanFileFoto] = linkFileFoto;
@@ -261,9 +274,6 @@ class Produk {
     hapusProduk(inputId: number): Promise<Respon> {
         return new Promise(async (resolve, reject) => {
             let dbConnection: any = dbConnectionHandler;
-            let namaFolderProduk: null | string = null;
-            let pathNamaFolderProduk: null | string = null;
-            let pathNamaFolderBackupProduk: null | string = null;
             try {
                 dbConnection = await database.promise().getConnection();
                 const sql = {
@@ -285,11 +295,11 @@ class Produk {
                     await dbConnection.beginTransaction();
                     await dbConnection.query(sql.query.hapusProduk, sql.input.hapusProduk);
                     const regexSpasi = /\s/g;
-                    namaFolderProduk = resultCariIdProduk[0].nama.replace(regexSpasi, "-");
-                    await this.backUpFolderProduk(namaFolderProduk || "default");
-                    pathNamaFolderProduk = this.pathFolderProduk + "/" + namaFolderProduk;
+                    const namaFolderProduk = resultCariIdProduk[0].nama.replace(regexSpasi, "-");
+                    await this.backUpFolderProduk(namaFolderProduk);
+                    const pathNamaFolderProduk = this.pathFolderProduk + "/" + namaFolderProduk;
                     await this.hapusFolderProduk(pathNamaFolderProduk);
-                    pathNamaFolderBackupProduk = this.pathFolderBackupProduk + "/" + namaFolderProduk;
+                    const pathNamaFolderBackupProduk = this.pathFolderBackupProduk + "/" + namaFolderProduk;
                     await this.hapusFolderProduk(pathNamaFolderBackupProduk);
                     dbConnection.commit();
                     resolve({
@@ -298,14 +308,6 @@ class Produk {
                     });
                 };
             } catch(error) {
-                if (typeof namaFolderProduk === "string" && pathNamaFolderProduk === null) {
-                    pathNamaFolderBackupProduk = this.pathFolderBackupProduk + "/" + namaFolderProduk;
-                    await this.hapusFolderProduk(pathNamaFolderBackupProduk);
-                } else if (typeof namaFolderProduk === "string" && typeof pathNamaFolderProduk === "string") {
-                    await this.kembalikanFolderProduk(namaFolderProduk);
-                    pathNamaFolderBackupProduk = this.pathFolderBackupProduk + "/" + namaFolderProduk;
-                    await this.hapusFolderProduk(pathNamaFolderBackupProduk);
-                };
                 dbConnection.rollback();
                 reject(error);
             };
@@ -386,7 +388,7 @@ class Produk {
                             const regexSpasi = /\s/g;
                             const pathNamaFolderProdukLama = this.pathFolderProduk + "/" + resultCariIdProduk[0].nama.replace(regexSpasi ,"-");
                             const pathNamaFolderProdukBaru = this.pathFolderProduk + "/" + input.nama.replace(regexSpasi ,"-");
-                            await fileSystem.renameSync(pathNamaFolderProdukLama, pathNamaFolderProdukBaru);
+                            await fileSystemPromise.rename(pathNamaFolderProdukLama, pathNamaFolderProdukBaru);
                         };
                         dbConnection.commit();
                         resolve({
@@ -467,7 +469,7 @@ class Produk {
                 else {
                     const regexSpasi = /\s/g;
                     const pathNamaFolderProduk = this.pathFolderProduk + "/" + resultCariIdProduk[0].nama.replace(regexSpasi, "-");
-                    const resultFileFoto = await fileSystem.readdirSync(pathNamaFolderProduk);
+                    const resultFileFoto = await fileSystemPromise.readdir(pathNamaFolderProduk);
                     let callBackUploadFileFoto: any = null;
                     input.foto.map((inputFotoMap, index) => {
                         const namaFileFoto = resultFileFoto.length + index + pembacaEkstensiFile(inputFotoMap.name);
@@ -483,6 +485,71 @@ class Produk {
                     });
                 };
             } catch(error) {
+                reject(error);
+            };
+            dbConnection.release();
+        });
+    };
+
+    hapusFotoProduk(input: InputHapusFotoProduk): Promise<Respon> {
+        return new Promise(async (resolve, reject) => {
+            let dbConnection: any = dbConnectionHandler;
+            try {
+                dbConnection = await database.promise().getConnection();
+                const sql = {
+                    queryCariIdProduk: "SELECT id, nama FROM produk WHERE id = ? LIMIT 1",
+                    inputCariIdProduk: [input.id],
+                };
+                const [resultCariIdProduk] = await dbConnection.query(sql.queryCariIdProduk, sql.inputCariIdProduk);
+                if (resultCariIdProduk.length === 0) resolve({
+                    status: 404,
+                    pesan: "PRODUK TIDAK DITEMUKAN",
+                });
+                else {
+                    const regexSpasi = /\s/g;
+                    const namaFolderProduk = resultCariIdProduk[0].nama.replace(regexSpasi, "-");
+                    const pathNamaFolderProduk = this.pathFolderProduk + "/" + namaFolderProduk;
+                    const resultFileFoto = await fileSystemPromise.readdir(pathNamaFolderProduk);
+                    resultFileFoto.sort((resultFileFotoSortA, resultFileFotoSortB) => {
+                        const regexAngka = /[0-9]+/;
+                        const cariAngkaA = resultFileFotoSortA.match(regexAngka) || "default";
+                        const cariAngkaB = resultFileFotoSortB.match(regexAngka) || "default";
+                        return Number(cariAngkaA[0]) - Number(cariAngkaB[0]);
+                    });
+                    if (typeof resultFileFoto[input.index] !== "string") resolve({
+                        status: 404,
+                        pesan: "FOTO TIDAK DITEMUKAN",
+                    });
+                    else if (resultFileFoto.length === 1) resolve({
+                        status: 403,
+                        pesan: "TIDAK BOLEH MENGHAPUS SEMUA FOTO",
+                    });
+                    else {
+                        await this.backUpFolderProduk(namaFolderProduk);
+                        const pathHapusFileFotoProduk = pathNamaFolderProduk + "/" + resultFileFoto[input.index];
+                        await fileSystemPromise.unlink(pathHapusFileFotoProduk);
+                        const resultFileFotoRename = await fileSystemPromise.readdir(pathNamaFolderProduk);
+                        resultFileFotoRename.sort((resultFileFotoRenameSortA, resultFileFotoRenameSortB) => {
+                            const regexAngka = /[0-9]+/;
+                            const cariAngkaA = resultFileFotoRenameSortA.match(regexAngka) || "default";
+                            const cariAngkaB = resultFileFotoRenameSortB.match(regexAngka) || "default";
+                            return Number(cariAngkaA[0]) - Number(cariAngkaB[0]);
+                        });
+                        for (let urutan = 0; urutan < resultFileFotoRename.length; urutan++) {
+                            const pathNamaFileFotoLama = pathNamaFolderProduk + "/" + resultFileFotoRename[urutan];
+                            const pathNamaFileFotoBaru = pathNamaFolderProduk + "/" + urutan + pembacaEkstensiFile(resultFileFotoRename[urutan]);
+                            await fileSystemPromise.rename(pathNamaFileFotoLama, pathNamaFileFotoBaru);
+                        };
+                        const pathFolderBackupProduk = this.pathFolderBackupProduk + "/" + namaFolderProduk;
+                        await this.hapusFolderProduk(pathFolderBackupProduk);
+                        resolve({
+                            status: 200,
+                            pesan: "BERHASIL MENGHAPUS FOTO PRODUK",
+                        });
+                    };
+                };
+            } catch(error) {
+                dbConnection.rollback();
                 reject(error);
             };
             dbConnection.release();
