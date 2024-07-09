@@ -27,6 +27,7 @@ type InputUbahProduk = {
     id: number,
     nama: string;
     deskripsi: string;
+    tampilkan: boolean;
 };
 
 type InputUbahVarianProduk = {
@@ -352,14 +353,15 @@ class Produk {
             let dbConnection: any = dbConnectionHandler;
             try {
                 dbConnection = await database.promise().getConnection();
+                const inputTampilkan = input.tampilkan === true ? 1 : 0;
                 const sql = {
                     query: {
                         cariIdProduk: "SELECT id, nama FROM produk WHERE id = ? LIMIT 1",
-                        updateProduk: "UPDATE produk SET nama = COALESCE(?, nama), deskripsi = COALESCE(?, deskripsi), diperbarui = NOW() WHERE id = ?",
+                        updateProduk: "UPDATE produk SET nama = COALESCE(?, nama), deskripsi = COALESCE(?, deskripsi), tampilkan = COALESCE(?, tampilkan), diperbarui = NOW() WHERE id = ?",
                     },
                     input: {
                         cariIdProduk: [input.id],
-                        updateProduk: [input.nama, input.deskripsi, input.id],
+                        updateProduk: [input.nama, input.deskripsi, inputTampilkan, input.id],
                     },
                 };
                 const [resultCariIdProduk] = await dbConnection.query(sql.query.cariIdProduk, sql.input.cariIdProduk);

@@ -120,10 +120,15 @@ class Produk {
             const inputBody = request.body;
             if (
                 typeof inputBody.id !== "number"
-                || (!inputBody.nama && !inputBody.deskripsi)
+                || (
+                    inputBody.nama === undefined
+                    && inputBody.deskripsi === undefined
+                    && inputBody.tampilkan === undefined
+                )
             ) response.send(400);
             else if (inputBody.nama && typeof inputBody.nama !== "string") response.send(400);
             else if (inputBody.deskripsi && typeof inputBody.deskripsi !== "string") response.send(400);
+            else if (inputBody.tampilkan && typeof inputBody.tampilkan !== "boolean") response.send(400);
             else {
                 const resultModel = await model.updateProduk(inputBody);
                 response.status(resultModel.status).json(resultModel);
