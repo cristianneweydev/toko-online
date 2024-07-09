@@ -48,13 +48,7 @@ class Produk {
                 || typeof inputBody.berat !== "number"
             ) response.send(400);
             else {
-                const resultModel = await model.tambahVarianProduk({
-                    idProduk: inputBody.idProduk,
-                    nama: inputBody.nama,
-                    harga: inputBody.harga,
-                    stok: inputBody.stok,
-                    berat: inputBody.berat,
-                });
+                const resultModel = await model.tambahVarianProduk(inputBody);
                 response.status(resultModel.status).json(resultModel);
             };
         } catch(error) {
@@ -162,6 +156,40 @@ class Produk {
             else {
                 const resultModel = await model.updateVarianProduk(inputBody);
                 response.status(resultModel.status).json(resultModel);
+            };
+        } catch(error) {
+            console.error({
+                error,
+                pesan: "SERVICE API ERROR",
+            });
+            response.send(500);
+        };
+    };
+
+    async tambahFotoProduk(request: Request, response: Response) {
+        try {
+            const inputBodyId: any = request.body.id;
+            const inputfile = request.files;
+            if (
+                Array.isArray(inputBodyId)
+                || isNaN(inputBodyId)
+                || !inputfile
+                || !inputfile.foto
+            ) response.send(400);
+            else {
+                if (!Array.isArray(inputfile.foto)) inputfile.foto = [inputfile.foto]; // parsing foto menjadi array
+                let penolakanFileFoto = false;
+                inputfile.foto.map((inputFileFotoMap) => {
+                    if (inputFileFotoMap.mimetype !== "image/png" && inputFileFotoMap.mimetype !== "image/jpeg") penolakanFileFoto = true;
+                });
+                if (penolakanFileFoto !== false) response.send(400);
+                else {
+                    const resultModel = await model.tambahFotoProduk({
+                        id: Number(inputBodyId),
+                        foto: inputfile.foto,
+                    });
+                    response.status(resultModel.status).json(resultModel);
+                };
             };
         } catch(error) {
             console.error({

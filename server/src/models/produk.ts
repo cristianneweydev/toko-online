@@ -37,6 +37,11 @@ type InputUbahVarianProduk = {
     berat: number;
 };
 
+type InputTambahFotoProduk = {
+    id: number;
+    foto: any;
+};
+
 class Produk {
     pathFolderProduk: string;
     linkFileFotoProduk: string;
@@ -130,9 +135,9 @@ class Produk {
                     input.foto.map((inputFotoMap, index) => {
                         const namaFileFoto = index + pembacaEkstensiFile(inputFotoMap.name);
                         const pathUploadFileFoto = pathNamaFolderProduk + "/" + namaFileFoto;
-                        inputFotoMap.mv(pathUploadFileFoto, (error => {
+                        inputFotoMap.mv(pathUploadFileFoto, (error) => {
                             if (error) callBackUploadFileFoto = error;
-                        }));
+                        });
                     });
                     if (callBackUploadFileFoto !== null) throw callBackUploadFileFoto;
                     dbConnection.commit();
@@ -416,6 +421,45 @@ class Produk {
                 };
             } catch(error) {
                 dbConnection.rollback();
+                reject(error);
+            };
+            dbConnection.release();
+        });
+    };
+
+    tambahFotoProduk(input: InputTambahFotoProduk): Promise<Respon> {
+        return new Promise(async (resolve, reject) => {
+            let dbConnection: any = dbConnectionHandler;
+            try {
+                dbConnection = await database.promise().getConnection();
+                const sql = {
+                    queryCariIdProduk: "SELECT id, nama FROM produk WHERE id = ? LIMIT 1",
+                    inputCariIdProduk: [input.id],
+                };
+                const [resultCariIdProduk] = await dbConnection.query(sql.queryCariIdProduk, sql.inputCariIdProduk);
+                if (resultCariIdProduk.length === 0) resolve({
+                    status: 404,
+                    pesan: "PRODUK TIDAK DITEMUKAN",
+                });
+                else {
+                    const regexSpasi = /\s/g;
+                    const pathNamaFolderProduk = this.pathFolderProduk + "/" + resultCariIdProduk[0].nama.replace(regexSpasi, "-");
+                    const resultFileFoto = await fileSystem.readdirSync(pathNamaFolderProduk);
+                    let callBackUploadFileFoto: any = null;
+                    input.foto.map((inputFotoMap, index) => {
+                        const namaFileFoto = resultFileFoto.length + index + pembacaEkstensiFile(inputFotoMap.name);
+                        const pathUploadFileFoto = pathNamaFolderProduk + "/" + namaFileFoto;
+                        inputFotoMap.mv(pathUploadFileFoto, (error) => {
+                            if (error) callBackUploadFileFoto = error;
+                        });
+                    });
+                    if (callBackUploadFileFoto !== null) throw callBackUploadFileFoto;
+                    resolve({
+                        status: 201,
+                        pesan: "FOTO BERHASIL DITAMBAHKAN KE PRODUK",
+                    });
+                };
+            } catch(error) {
                 reject(error);
             };
             dbConnection.release();
