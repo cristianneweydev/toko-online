@@ -369,7 +369,7 @@ class Produk {
                     },
                 };
                 const [resultCariNamaProduk] = await dbConnection.query(sql.query.cariNamaProduk, sql.input.cariNamaProduk);
-                if (resultCariNamaProduk.length === 1) resolve({
+                if (typeof input.nama === "string" && resultCariNamaProduk.length === 1) resolve({
                     status: 409,
                     pesan: "PRODUK DENGAN NAMA YANG SAMA SUDAH ADA",
                 });
@@ -410,27 +410,37 @@ class Produk {
                 dbConnection = await database.promise().getConnection();
                 const sql = {
                     query: {
-                        cariIdVarianProduk: "SELECT id FROM varian_produk WHERE id = ? LIMIT 1",
+                        cariIdVarianProduk: "SELECT id, id_produk FROM varian_produk WHERE id = ? LIMIT 1",
+                        cariIdProdukNamaVarianProduk: "SELECT nama FROM varian_produk WHERE id_produk = ? AND LOWER(nama) = LOWER(nama) LIMIT 1",
                         updateVarianProduk: "UPDATE varian_produk SET nama = COALESCE(?, nama), harga = COALESCE(?, harga), stok = COALESCE(?, stok), berat = COALESCE(?, berat) WHERE id = ?",
                     },
                     input: {
                         cariIdVarianProduk: [input.id],
+                        cariIdProdukNamaVarianProduk: ["default", input.nama],
                         updateVarianProduk: [input.nama, input.harga, input.stok, input.berat, input.id],
                     },
                 };
-                const [resultCariIdProduk] = await dbConnection.query(sql.query.cariIdVarianProduk, sql.input.cariIdVarianProduk);
-                if (resultCariIdProduk.length === 0) resolve({
+                const [resultCariIdVarianProduk] = await dbConnection.query(sql.query.cariIdVarianProduk, sql.input.cariIdVarianProduk);
+                if (resultCariIdVarianProduk.length === 0) resolve({
                     status: 404,
                     pesan: "VARIAN PRODUK TIDAK DITEMUKAN",
                 });
                 else {
-                    await dbConnection.beginTransaction();
-                    await dbConnection.query(sql.query.updateVarianProduk, sql.input.updateVarianProduk);
-                    dbConnection.commit();
-                    resolve({
-                        status: 200,
-                        pesan: "BERHASIL MENGUPDATE VARIAN PRODUK",
+                    if (typeof input.nama === "string") sql.input.cariIdProdukNamaVarianProduk[0] = resultCariIdVarianProduk[0].id_produk;
+                    const [resultCariIdProdukNamaVarianProduk] = await dbConnection.query(sql.query.cariIdProdukNamaVarianProduk, sql.input.cariIdProdukNamaVarianProduk);
+                    if (typeof input.nama === "string" && resultCariIdProdukNamaVarianProduk.length === 1) resolve({
+                        status: 409,
+                        pesan: "VARIAN PRODUK DENGAN NAMA YANG SAMA SUDAH ADA",
                     });
+                    else {
+                        await dbConnection.beginTransaction();
+                        await dbConnection.query(sql.query.updateVarianProduk, sql.input.updateVarianProduk);
+                        dbConnection.commit();
+                        resolve({
+                            status: 200,
+                            pesan: "BERHASIL MENGUPDATE VARIAN PRODUK",
+                        });
+                    };
                 };
             } catch(error) {
                 dbConnection.rollback();
