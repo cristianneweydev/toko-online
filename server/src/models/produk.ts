@@ -226,6 +226,8 @@ class Produk {
                 const [resultPanjangTabel] = await dbConnection.query(sql.query.panjangTabel);
                 const [resultCariSemuaProduk] = await dbConnection.query(sql.query.cariSemuaProduk, sql.input.cariSemuaProduk);
                 for (let urutan = 0; urutan < resultCariSemuaProduk.length; urutan++) {
+                    resultCariSemuaProduk[urutan].tampilkan = resultCariSemuaProduk[urutan].tampilkan === 1 ? true : false;
+
                     sql.input.cariIdProdukVarianProduk[0] = resultCariSemuaProduk[urutan].id;
                     const [resultIdProdukVarianProduk] = await dbConnection.query(sql.query.cariIdProdukVarianProduk, sql.input.cariIdProdukVarianProduk);
                     resultCariSemuaProduk[urutan].varian = resultIdProdukVarianProduk.length > 0 ? resultIdProdukVarianProduk : null;
@@ -356,33 +358,42 @@ class Produk {
                 const inputTampilkan = input.tampilkan === true ? 1 : 0;
                 const sql = {
                     query: {
+                        cariNamaProduk: "SELECT nama FROM produk WHERE LOWER(nama) = LOWER(?) LIMIT 1",
                         cariIdProduk: "SELECT id, nama FROM produk WHERE id = ? LIMIT 1",
                         updateProduk: "UPDATE produk SET nama = COALESCE(?, nama), deskripsi = COALESCE(?, deskripsi), tampilkan = COALESCE(?, tampilkan), diperbarui = NOW() WHERE id = ?",
                     },
                     input: {
+                        cariNamaProduk: [input.nama],
                         cariIdProduk: [input.id],
                         updateProduk: [input.nama, input.deskripsi, inputTampilkan, input.id],
                     },
                 };
-                const [resultCariIdProduk] = await dbConnection.query(sql.query.cariIdProduk, sql.input.cariIdProduk);
-                if (resultCariIdProduk.length === 0) resolve({
-                    status: 404,
-                    pesan: "PRODUK TIDAK DITEMUKAN",
+                const [resultCariNamaProduk] = await dbConnection.query(sql.query.cariNamaProduk, sql.input.cariNamaProduk);
+                if (resultCariNamaProduk.length === 1) resolve({
+                    status: 409,
+                    pesan: "PRODUK DENGAN NAMA YANG SAMA SUDAH ADA",
                 });
                 else {
-                    await dbConnection.beginTransaction();
-                    await dbConnection.query(sql.query.updateProduk, sql.input.updateProduk);
-                    if (input.nama) {
-                        const regexSpasi = /\s/g;
-                        const pathNamaFolderProdukLama = this.pathFolderProduk + "/" + resultCariIdProduk[0].nama.replace(regexSpasi ,"-");
-                        const pathNamaFolderProdukBaru = this.pathFolderProduk + "/" + input.nama.replace(regexSpasi ,"-");
-                        await fileSystem.renameSync(pathNamaFolderProdukLama, pathNamaFolderProdukBaru);
-                    };
-                    dbConnection.commit();
-                    resolve({
-                        status: 200,
-                        pesan: "BERHASIL MENGUPDATE PRODUK",
+                    const [resultCariIdProduk] = await dbConnection.query(sql.query.cariIdProduk, sql.input.cariIdProduk);
+                    if (resultCariIdProduk.length === 0) resolve({
+                        status: 404,
+                        pesan: "PRODUK TIDAK DITEMUKAN",
                     });
+                    else {
+                        await dbConnection.beginTransaction();
+                        await dbConnection.query(sql.query.updateProduk, sql.input.updateProduk);
+                        if (input.nama) {
+                            const regexSpasi = /\s/g;
+                            const pathNamaFolderProdukLama = this.pathFolderProduk + "/" + resultCariIdProduk[0].nama.replace(regexSpasi ,"-");
+                            const pathNamaFolderProdukBaru = this.pathFolderProduk + "/" + input.nama.replace(regexSpasi ,"-");
+                            await fileSystem.renameSync(pathNamaFolderProdukLama, pathNamaFolderProdukBaru);
+                        };
+                        dbConnection.commit();
+                        resolve({
+                            status: 200,
+                            pesan: "BERHASIL MENGUPDATE PRODUK",
+                        });
+                    };
                 };
             } catch(error) {
                 dbConnection.rollback();
