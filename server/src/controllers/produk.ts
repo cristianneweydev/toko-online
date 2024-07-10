@@ -221,6 +221,27 @@ class Produk {
             response.send(500);
         };
     };
+
+    async updatePosisiFotoProduk(request: Request, response: Response) {
+        try {
+            const inputBody = request.body;
+            if (
+                typeof inputBody.id !== "number"
+                || typeof inputBody.dariIndex !== "number"
+                || typeof inputBody.keIndex !== "number"
+            ) response.send(400);
+            else {
+                const resultModel = await model.updatePosisiFotoProduk(inputBody);
+                response.status(resultModel.status).json(resultModel);
+            };
+        } catch(error) {
+            console.error({
+                error,
+                pesan: "SERVICE API ERROR",
+            });
+            response.send(500);
+        };
+    };
 };
 
 export default new Produk();

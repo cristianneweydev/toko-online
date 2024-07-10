@@ -22,5 +22,6 @@ router.put("/product", validasiJwt, controllerProduk.updateProduk);
 router.put("/product/variant", validasiJwt, controllerProduk.updateVarianProduk);
 router.post("/product/image", validasiJwt, expressFileupload(), controllerProduk.tambahFotoProduk);
 router.delete("/product/image", validasiJwt, controllerProduk.hapusFotoProduk);
+router.put("/product/image/position", validasiJwt, controllerProduk.updatePosisiFotoProduk);
 
 export default router;
