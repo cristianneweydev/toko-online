@@ -5,17 +5,17 @@ class Produk {
     async tambahProduk(request: Request, response: Response) {
         try {
             const inputBody = request.body;
-            const inputfile = request.files;
+            const inputFile = request.files;
             if (
                 typeof inputBody.nama !== "string"
                 || typeof inputBody.deskripsi !== "string"
-                || !inputfile
-                || !inputfile.foto
+                || !inputFile
+                || !inputFile.foto
             ) response.send(400);
             else {
-                if (!Array.isArray(inputfile.foto)) inputfile.foto = [inputfile.foto]; // parsing foto menjadi array
+                if (!Array.isArray(inputFile.foto)) inputFile.foto = [inputFile.foto]; // parsing foto menjadi array
                 let penolakanFileFoto = false;
-                inputfile.foto.map((inputFileFotoMap) => {
+                inputFile.foto.map((inputFileFotoMap) => {
                     if (inputFileFotoMap.mimetype !== "image/png" && inputFileFotoMap.mimetype !== "image/jpeg") penolakanFileFoto = true;
                 });
                 if (penolakanFileFoto !== false) response.send(400);
@@ -23,7 +23,7 @@ class Produk {
                     const resultModel = await model.tambahProduk({
                         nama: inputBody.nama,
                         deskripsi: inputBody.deskripsi,
-                        foto: inputfile.foto,
+                        foto: inputFile.foto,
                     });
                     response.status(resultModel.status).json(resultModel);
                 };
@@ -174,24 +174,24 @@ class Produk {
     async tambahFotoProduk(request: Request, response: Response) {
         try {
             const inputBodyId = request.body.id;
-            const inputfile = request.files;
+            const inputFile = request.files;
             if (
                 Array.isArray(inputBodyId)
                 || isNaN(inputBodyId)
-                || !inputfile
-                || !inputfile.foto
+                || !inputFile
+                || !inputFile.foto
             ) response.send(400);
             else {
-                if (!Array.isArray(inputfile.foto)) inputfile.foto = [inputfile.foto]; // parsing foto menjadi array
+                if (!Array.isArray(inputFile.foto)) inputFile.foto = [inputFile.foto]; // parsing foto menjadi array
                 let penolakanFileFoto = false;
-                inputfile.foto.map((inputFileFotoMap) => {
+                inputFile.foto.map((inputFileFotoMap) => {
                     if (inputFileFotoMap.mimetype !== "image/png" && inputFileFotoMap.mimetype !== "image/jpeg") penolakanFileFoto = true;
                 });
                 if (penolakanFileFoto !== false) response.send(400);
                 else {
                     const resultModel = await model.tambahFotoProduk({
                         id: Number(inputBodyId),
-                        foto: inputfile.foto,
+                        foto: inputFile.foto,
                     });
                     response.status(resultModel.status).json(resultModel);
                 };
@@ -232,6 +232,36 @@ class Produk {
             ) response.send(400);
             else {
                 const resultModel = await model.updatePosisiFotoProduk(inputBody);
+                response.status(resultModel.status).json(resultModel);
+            };
+        } catch(error) {
+            console.error({
+                error,
+                pesan: "SERVICE API ERROR",
+            });
+            response.send(500);
+        };
+    };
+
+    async updateFotoProduk(request: Request, response: Response) {
+        try {
+            const inputBody = request.body;
+            const inputFile = request.files;
+            if (
+                Array.isArray(inputBody.id)
+                || isNaN(inputBody.id)
+                || Array.isArray(inputBody.index)
+                || isNaN(inputBody.index)
+                || !inputFile
+                || !inputFile.foto
+                || Array.isArray(inputFile.foto)
+            ) response.send(400);
+            else {
+                const resultModel = await model.updateFotoProduk({
+                    id: Number(inputBody.id),
+                    index: Number(inputBody.index),
+                    foto: inputFile.foto,
+                });
                 response.status(resultModel.status).json(resultModel);
             };
         } catch(error) {

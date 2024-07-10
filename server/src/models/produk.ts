@@ -31,7 +31,7 @@ type InputUbahProduk = {
 };
 
 type InputUbahVarianProduk = {
-    id: number,
+    id: number;
     nama: string;
     harga: number;
     stok: number;
@@ -50,8 +50,14 @@ type InputHapusFotoProduk = {
 
 type InputUpdatePosisiFotoProduk = {
     id: number;
-    dariIndex: number,
-    keIndex: number,
+    dariIndex: number;
+    keIndex: number;
+};
+
+type InputUpdateFotoProduk = {
+    id: number;
+    index: number;
+    foto: Record<string, any>
 };
 
 class Produk {
@@ -564,10 +570,6 @@ class Produk {
     updatePosisiFotoProduk(input: InputUpdatePosisiFotoProduk): Promise<Respon> {
         return new Promise(async (resolve, reject) => {
             let dbConnection: any = dbConnectionHandler;
-            let namaFolderProduk: null | string = null;
-            let pathNamaFolderProduk: null | string = null;
-            let pathNamaFolderBackupProduk: null | string = null;
-            let callBackErrorCopyFile = false;
             try {
                 dbConnection = await database.promise().getConnection();
                 const sql = {
@@ -585,9 +587,8 @@ class Produk {
                 });
                 else {
                     const regexSpasi = /\s/g;
-                    namaFolderProduk = resultCariIdProduk[0].nama.replace(regexSpasi, "-");
-                    pathNamaFolderProduk = this.pathFolderProduk + "/" + namaFolderProduk;
-                    pathNamaFolderBackupProduk = this.pathFolderBackupProduk + "/" + namaFolderProduk;
+                    const namaFolderProduk = resultCariIdProduk[0].nama.replace(regexSpasi, "-");
+                    const pathNamaFolderProduk = this.pathFolderProduk + "/" + namaFolderProduk;
                     const resultFileFoto = await fileSystemPromise.readdir(pathNamaFolderProduk);
                     resultFileFoto.sort((resultFileFotoSortA, resultFileFotoSortB) => {
                         const regexAngka = /[0-9]+/;
@@ -600,9 +601,8 @@ class Produk {
                         pesan: "FOTO TIDAK DITEMUKAN",
                     });
                     else {
-                        await this.backUpFolderProduk(namaFolderProduk || "default");
+                        await this.backUpFolderProduk(namaFolderProduk);
                         const pathFolderCopyProduk = pathNamaFolderProduk + "/rename-file" ;
-                        callBackErrorCopyFile = true;
                         await fileSystemPromise.mkdir(pathFolderCopyProduk);
                         const pathNamaFileDariIndex = pathNamaFolderProduk + "/" + resultFileFoto[input.dariIndex]; // path foto(sebelum dipindahkan) posisi awal yang akan di ubah
                         const pathNamaFileDariIndexRename = pathFolderCopyProduk + "/" + resultFileFoto[input.keIndex]; // path foto(sesudah dipindahkan) posisi awal yang akan di ubah
@@ -612,7 +612,8 @@ class Produk {
                         await fileSystemPromise.rename(pathNamaFileKeIndex, pathNamaFileKeIndexRename); // copy ke folder rename-file
                         await fileSystemPromise.cp(pathFolderCopyProduk, pathNamaFolderProduk, { recursive: true });
                         await fileSystemPromise.rmdir(pathFolderCopyProduk, { recursive: true });
-                        await this.hapusFolderProduk(pathNamaFolderBackupProduk || "default");
+                        const pathNamaFolderBackupProduk = this.pathFolderBackupProduk + "/" + namaFolderProduk;
+                        await this.hapusFolderProduk(pathNamaFolderBackupProduk);
                         resolve({
                             status: 200,
                             pesan: "BERHASIL MENGUPDATE POSISI FOTO",
@@ -620,11 +621,61 @@ class Produk {
                     };
                 };
             } catch(error) {
-                if (callBackErrorCopyFile === true) {
-                    await this.hapusFolderProduk(pathNamaFolderProduk || "default");
-                    await this.kembalikanFolderProduk(namaFolderProduk || "default");
-                    await this.hapusFolderProduk(pathNamaFolderBackupProduk || "default");
+                reject(error);
+            };
+            dbConnection.release();
+        });
+    };
+
+    updateFotoProduk(input: InputUpdateFotoProduk): Promise<Respon> {
+        return new Promise(async (resolve, reject) => {
+            let dbConnection: any = dbConnectionHandler;
+            try {
+                dbConnection = await database.promise().getConnection();
+                const sql = {
+                    queryCariIdProduk: "SELECT id, nama FROM produk WHERE id = ? LIMIT 1",
+                    inputCariIdProduk: [input.id],
                 };
+                const [resultCariIdProduk] = await dbConnection.query(sql.queryCariIdProduk, sql.inputCariIdProduk);
+                if (resultCariIdProduk.length === 0) resolve({
+                    status: 404,
+                    pesan: "PRODUK TIDAK DITEMUKAN",
+                });
+                else {
+                    const regexSpasi = /\s/g;
+                    const namaFolderProduk = resultCariIdProduk[0].nama.replace(regexSpasi, "-");
+                    const pathNamaFolderProduk = this.pathFolderProduk + "/" + namaFolderProduk;
+                    const resultFileFoto = await fileSystemPromise.readdir(pathNamaFolderProduk);
+                    resultFileFoto.sort((resultFileFotoSortA, resultFileFotoSortB) => {
+                        const regexAngka = /[0-9]+/;
+                        const cariAngkaA = resultFileFotoSortA.match(regexAngka) || "default";
+                        const cariAngkaB = resultFileFotoSortB.match(regexAngka) || "default";
+                        return Number(cariAngkaA[0]) - Number(cariAngkaB[0]);
+                    });
+                    if (typeof resultFileFoto[input.index] !== "string") resolve({
+                        status: 404,
+                        pesan: "FOTO TIDAK DITEMUKAN",
+                    });
+                    else {
+                        await this.backUpFolderProduk(namaFolderProduk);
+                        const pathHapusFileFotoProduk = pathNamaFolderProduk + "/" + resultFileFoto[input.index];
+                        await fileSystemPromise.unlink(pathHapusFileFotoProduk);
+                        let callBackUploadFileFoto = null;
+                        const namaFileFoto = input.index + `${ pembacaEkstensiFile(input.foto.name) }`;
+                        const pathUploadFileFoto = pathNamaFolderProduk + "/" + namaFileFoto;
+                        input.foto.mv(pathUploadFileFoto, (error) => {
+                            if (error) callBackUploadFileFoto = error;
+                        });
+                        if (callBackUploadFileFoto !== null) throw callBackUploadFileFoto;
+                        const pathNamaFolderBackupProduk = this.pathFolderBackupProduk + "/" + namaFolderProduk;
+                        await this.hapusFolderProduk(pathNamaFolderBackupProduk);
+                        resolve({
+                            status: 200,
+                            pesan: "BERHASIL MENGUPDATE FOTO PRODUK",
+                        });
+                    };
+                };
+            } catch(error) {
                 reject(error);
             };
             dbConnection.release();
