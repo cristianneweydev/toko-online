@@ -19,7 +19,6 @@ type InputTambahVarianProduk = {
 };
 
 interface ResponDataProduk extends Respon {
-    panjangData: Record<string, number>;
     data: Array<any> | null;
 };
 
@@ -235,14 +234,12 @@ class Produk {
                     query: {
                         cariSemuaProduk: "SELECT * FROM produk ORDER BY id DESC LIMIT 5 OFFSET ?",
                         cariIdProdukVarianProduk: "SELECT id, nama, harga, stok, berat FROM varian_produk WHERE id_produk = ? ORDER BY id DESC",
-                        panjangTabel: "SELECT TABLE_ROWS FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA = 'toko_online' AND TABLE_NAME = 'produk'",
                     },
                     input: {
                         cariSemuaProduk: [inputPagination * 5],
                         cariIdProdukVarianProduk: ["default"],
                     },
                 };
-                const [resultPanjangTabel] = await dbConnection.query(sql.query.panjangTabel);
                 const [resultCariSemuaProduk] = await dbConnection.query(sql.query.cariSemuaProduk, sql.input.cariSemuaProduk);
                 for (let urutan = 0; urutan < resultCariSemuaProduk.length; urutan++) {
                     resultCariSemuaProduk[urutan].tampilkan = resultCariSemuaProduk[urutan].tampilkan === 1 ? true : false;
@@ -270,10 +267,6 @@ class Produk {
                 resolve({
                     status: 200,
                     pesan: "BERHASIL MENAMPILKAN DATA PRODUK",
-                    panjangData: {
-                        keseluruhan: resultPanjangTabel[0].TABLE_ROWS,
-                        pagination: resultCariSemuaProduk.length,
-                    },
                     data: resultCariSemuaProduk.length > 0 ? resultCariSemuaProduk : null,
                 });
             } catch(error) {
@@ -675,6 +668,55 @@ class Produk {
                         });
                     };
                 };
+            } catch(error) {
+                reject(error);
+            };
+            dbConnection.release();
+        });
+    };
+
+    dataProdukClient(inputPagination: number): Promise<ResponDataProduk> {
+        return new Promise(async (resolve, reject) => {
+            let dbConnection: any = dbConnectionHandler;
+            try {
+                dbConnection = await database.promise().getConnection();
+                const sql = {
+                    query: {
+                        cariSemuaProduk: "SELECT id, nama, deskripsi FROM produk WHERE tampilkan = 1 ORDER BY id DESC LIMIT 5 OFFSET ?",
+                        cariIdProdukVarianProduk: "SELECT id, nama, harga, stok, berat FROM varian_produk WHERE id_produk = ? ORDER BY id DESC",
+                    },
+                    input: {
+                        cariSemuaProduk: [inputPagination * 5],
+                        cariIdProdukVarianProduk: ["default"],
+                    },
+                };
+                const [resultCariSemuaProduk] = await dbConnection.query(sql.query.cariSemuaProduk, sql.input.cariSemuaProduk);
+                for (let urutan = 0; urutan < resultCariSemuaProduk.length; urutan++) {
+                    sql.input.cariIdProdukVarianProduk[0] = resultCariSemuaProduk[urutan].id;
+                    const [resultIdProdukVarianProduk] = await dbConnection.query(sql.query.cariIdProdukVarianProduk, sql.input.cariIdProdukVarianProduk);
+                    resultCariSemuaProduk[urutan].varian = resultIdProdukVarianProduk.length > 0 ? resultIdProdukVarianProduk : null;
+
+                    const regexSpasi = /\s/g;
+                    const namaFolderProduk = resultCariSemuaProduk[urutan].nama.replace(regexSpasi, "-");
+                    const pathNamaFolderProduk = this.pathFolderProduk + "/" + namaFolderProduk;
+                    const resultFileFoto = await fileSystemPromise.readdir(pathNamaFolderProduk);
+                    resultFileFoto.sort((resultFileFotoSortA, resultFileFotoSortB) => {
+                        const regexAngka = /[0-9]+/;
+                        const cariAngkaA = resultFileFotoSortA.match(regexAngka) || "default";
+                        const cariAngkaB = resultFileFotoSortB.match(regexAngka) || "default";
+                        return Number(cariAngkaA[0]) - Number(cariAngkaB[0]);
+                    });
+                    for (let urutanFileFoto = 0; urutanFileFoto < resultFileFoto.length; urutanFileFoto++) {
+                        const linkFileFoto = this.linkFileFotoProduk + "/" + namaFolderProduk + "/" + resultFileFoto[urutanFileFoto];
+                        resultFileFoto[urutanFileFoto] = linkFileFoto;
+                    };
+                    resultCariSemuaProduk[urutan].foto = resultFileFoto;
+                };
+                resolve({
+                    status: 200,
+                    pesan: "BERHASIL MENAMPILKAN DATA PRODUK",
+                    data: resultCariSemuaProduk.length > 0 ? resultCariSemuaProduk : null,
+                });
             } catch(error) {
                 reject(error);
             };

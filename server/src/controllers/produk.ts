@@ -272,6 +272,27 @@ class Produk {
             response.send(500);
         };
     };
+
+    async dataProdukClient(request: Request, response: Response) {
+        try {
+            const inputQueryPagination: any = request.query.pagination;
+            if (
+                inputQueryPagination
+                && (Array.isArray(inputQueryPagination) || isNaN(inputQueryPagination))
+            ) response.send(400);
+            else {
+                const inputPagination = inputQueryPagination ? Number(inputQueryPagination) : 0;
+                const resultModel = await model.dataProdukClient(inputPagination);
+                response.status(resultModel.status).json(resultModel);
+            };
+        } catch(error) {
+            console.error({
+                error,
+                pesan: "SERVICE API ERROR",
+            });
+            response.send(500);
+        };
+    };
 };
 
 export default new Produk();
